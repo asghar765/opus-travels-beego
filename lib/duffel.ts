@@ -5,8 +5,10 @@ if (!process.env.NEXT_PUBLIC_DUFFEL_API_KEY) {
 }
 
 const duffel = new Duffel({
-  token: process.env.NEXT_PUBLIC_DUFFEL_API_KEY,
-  debug: true // Enable debug mode to see more detailed errors
+  token: process.env.NEXT_PUBLIC_DUFFEL_API_KEY
 });
+
+// Set API version
+duffel.apiVersion = 'v1';
 
 export { duffel };
