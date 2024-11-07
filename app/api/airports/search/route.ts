@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { duffel } from '@/lib/duffel';
-import type { Airport } from '@duffel/api/types';
+import { airports } from '@/lib/airports';
 
 interface FormattedLocation {
   code: string;
@@ -10,24 +9,39 @@ interface FormattedLocation {
   type: 'airport' | 'city';
 }
 
-function getMatchScore(str: string | undefined | null, searchStr: string): number {
+// Major cities for boosting scores
+const MAJOR_CITIES = new Set([
+  'london', 'islamabad', 'lahore', 'karachi',
+  'dubai', 'new york', 'paris', 'tokyo'
+]);
+
+function getMatchScore(str: string | undefined | null, searchStr: string, context: { city?: string; type?: string }): number {
   if (!str) return 0;
   str = str.toLowerCase();
   searchStr = searchStr.toLowerCase();
   
+  let score = 0;
+  
   // Exact match gets highest score
-  if (str === searchStr) return 100;
+  if (str === searchStr) score = 100;
   // IATA code match gets very high score
-  if (str.length === 3 && str === searchStr) return 95;
+  else if (str.length === 3 && str === searchStr) score = 95;
   // Start of word match gets high score
-  const words = str.split(/[\s-]+/);
-  if (words.some(word => word.startsWith(searchStr))) return 90;
+  else if (str.split(/[\s-]+/).some(word => word.startsWith(searchStr))) score = 90;
   // Start match gets good score
-  if (str.startsWith(searchStr)) return 80;
+  else if (str.startsWith(searchStr)) score = 80;
   // Contains match gets lower score
-  if (str.includes(searchStr)) return 60;
-  // No match gets zero
-  return 0;
+  else if (str.includes(searchStr)) score = 60;
+
+  // Boost scores based on context
+  if (context.city && MAJOR_CITIES.has(context.city.toLowerCase())) {
+    score += 30;
+  }
+  if (context.type === 'large_airport') {
+    score += 20;
+  }
+
+  return score;
 }
 
 export async function GET(request: Request) {
@@ -43,55 +57,28 @@ export async function GET(request: Request) {
   try {
     console.log(`Starting location search with query: ${query}`);
 
-    // Try to get specific airport first if it's a 3-letter code
-    if (query.length === 3) {
-      try {
-        const response = await duffel.airports.get(query.toUpperCase());
-        if (response.data && response.data.iata_code) {
-          const result = {
-            code: response.data.iata_code,
-            name: response.data.name,
-            city: response.data.city_name || '',
-            country: response.data.iata_country_code || '',
-            type: 'airport' as const
-          };
-          console.log('Found exact match:', result);
-          return NextResponse.json([result]);
-        }
-      } catch (error) {
-        console.log('Specific airport lookup failed, falling back to search');
-      }
-    }
-
-    // Get airports list with maximum limit
-    const response = await duffel.airports.list({
-      limit: 200
-    });
-
-    console.log(`Fetched ${response.data.length} airports`);
-
-    // Filter and score airports
-    const scoredAirports = response.data
-      .filter(airport => airport.iata_code && airport.name)
+    // Score and filter airports
+    const scoredAirports = airports
       .map(airport => {
-        const cityScore = getMatchScore(airport.city_name, query);
-        const nameScore = getMatchScore(airport.name, query);
-        const codeScore = getMatchScore(airport.iata_code, query);
-        const cityIataScore = airport.city?.iata_code ? 
-          getMatchScore(airport.city.iata_code, query) : 0;
+        const context = {
+          city: airport.municipality,
+          type: airport.type
+        };
+
+        const cityScore = getMatchScore(airport.municipality, query, context);
+        const nameScore = getMatchScore(airport.name, query, context);
+        const codeScore = getMatchScore(airport.iata_code, query, context);
         
-        // Boost score for major airports and exact city matches
-        const isMajorAirport = airport.name.toLowerCase().includes('international');
-        const isExactCityMatch = airport.city_name?.toLowerCase() === query;
-        const baseScore = Math.max(cityScore, nameScore, codeScore, cityIataScore);
-        const finalScore = baseScore + 
-          (isMajorAirport ? 5 : 0) + 
-          (isExactCityMatch ? 10 : 0);
+        const baseScore = Math.max(cityScore, nameScore, codeScore);
+        
+        // Additional boost for international airports
+        const isInternationalAirport = airport.name.toLowerCase().includes('international');
+        const finalScore = baseScore + (isInternationalAirport ? 10 : 0);
         
         if (finalScore > 0) {
           console.log('Match found:', {
             name: airport.name,
-            city: airport.city_name,
+            city: airport.municipality,
             code: airport.iata_code,
             score: finalScore,
             matchType: finalScore >= 90 ? 'word start' : 
@@ -105,8 +92,8 @@ export async function GET(request: Request) {
           location: {
             code: airport.iata_code,
             name: airport.name,
-            city: airport.city_name || '',
-            country: airport.iata_country_code || '',
+            city: airport.municipality || '',
+            country: airport.iso_country,
             type: 'airport' as const
           }
         };
@@ -126,14 +113,7 @@ export async function GET(request: Request) {
     console.error('Location search error:', error);
     return NextResponse.json({ 
       error: 'Failed to search locations',
-      details: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        // @ts-ignore
-        meta: error.meta,
-        // @ts-ignore
-        errors: error.errors
-      } : String(error)
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }
