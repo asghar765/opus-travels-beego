@@ -35,11 +35,20 @@ export async function POST(request: Request) {
       ],
       passengers: [{ type: 'adult' }],
       cabin_class: params.cabinClass,
+      return_offers: true
     });
 
-    const offers = await duffel.offers.list({ offer_request_id: offerRequest.data.id });
+    const offers = await duffel.offers.list({ 
+      offer_request_id: offerRequest.data.id,
+      sort: 'total_amount',
+      limit: 50
+    });
 
-    return NextResponse.json(offers.data);
+    return NextResponse.json({
+      success: true,
+      requestId: offerRequest.data.id,
+      offers: offers.data
+    });
   } catch (error) {
     console.error('Flight search error:', error);
     return NextResponse.json(

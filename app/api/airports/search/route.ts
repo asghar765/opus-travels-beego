@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { airports } from 'lib/airports';
-
+import { airports } from '@/lib/airports';
 interface FormattedLocation {
   code: string;
   name: string;
