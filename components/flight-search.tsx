@@ -40,17 +40,17 @@ const formSchema = z.object({
     required_error: "Please select a departure date",
   }),
   returnDate: z.date().optional(),
-  adults: z.string().transform((val) => parseInt(val)),
+  adults: z.number().min(1),
   cabinClass: z.enum(["economy", "premium_economy", "business", "first"]),
 });
 
 export function FlightSearch() {
   const [isRoundTrip, setIsRoundTrip] = useState(false);
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      adults: "1",
+      adults: 1,
       cabinClass: "economy",
     },
   });
@@ -65,11 +65,11 @@ export function FlightSearch() {
         },
         body: JSON.stringify(form.getValues()),
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to search flights");
       }
-      
+
       return response.json();
     },
     enabled: false,
@@ -110,7 +110,7 @@ export function FlightSearch() {
               <FormField
                 control={form.control}
                 name="origin"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>From</FormLabel>
                     <FormControl>
@@ -128,7 +128,7 @@ export function FlightSearch() {
               <FormField
                 control={form.control}
                 name="destination"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>To</FormLabel>
                     <FormControl>
@@ -148,7 +148,7 @@ export function FlightSearch() {
               <FormField
                 control={form.control}
                 name="departureDate"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Departure Date</FormLabel>
                     <Popover>
@@ -175,7 +175,7 @@ export function FlightSearch() {
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
-                          disabled={(date) =>
+                          disabled={(date: Date) =>
                             date < new Date() || date < new Date("1900-01-01")
                           }
                           initialFocus
@@ -191,7 +191,7 @@ export function FlightSearch() {
                 <FormField
                   control={form.control}
                   name="returnDate"
-                  render={({ field }) => (
+                  render={({ field }: { field: any }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Return Date</FormLabel>
                       <Popover>
@@ -218,7 +218,7 @@ export function FlightSearch() {
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
-                            disabled={(date) =>
+                            disabled={(date: Date) =>
                               date < form.getValues("departureDate") ||
                               date < new Date("1900-01-01")
                             }
@@ -237,11 +237,11 @@ export function FlightSearch() {
               <FormField
                 control={form.control}
                 name="adults"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>Passengers</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => field.onChange(Number(value))}
                       defaultValue={field.value?.toString()}
                     >
                       <FormControl>
@@ -265,7 +265,7 @@ export function FlightSearch() {
               <FormField
                 control={form.control}
                 name="cabinClass"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>Cabin Class</FormLabel>
                     <Select

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { airports } from '@/lib/airports';
+import { airports } from 'lib/airports';
 
 interface FormattedLocation {
   code: string;
@@ -57,8 +57,15 @@ export async function GET(request: Request) {
   try {
     console.log(`Starting location search with query: ${query}`);
 
-    // Score and filter airports
-    const scoredAirports = airports
+    // Pre-filter airports to reduce the number of iterations
+    const filteredAirports = airports.filter(airport => 
+      airport.name.toLowerCase().includes(query) ||
+      airport.municipality.toLowerCase().includes(query) ||
+      airport.iata_code.toLowerCase().includes(query)
+    );
+
+    // Score and sort only the filtered airports
+    const scoredAirports = filteredAirports
       .map(airport => {
         const context = {
           city: airport.municipality,
