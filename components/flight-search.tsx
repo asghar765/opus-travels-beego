@@ -7,10 +7,10 @@ import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { AirportSearch } from "@/components/airport-search";
+import { cn } from "lib/utils";
+import { Button } from "components/ui/button";
+import { Calendar } from "components/ui/calendar";
+import { AirportSearch } from "components/airport-search";
 import {
   Form,
   FormControl,
@@ -18,20 +18,21 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "components/ui/form";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "components/ui/select";
 import { toast } from "sonner";
+import { FlightResults } from "./flight-results";
 
 const formSchema = z.object({
   origin: z.string().min(3, "Please select a departure airport"),
@@ -58,12 +59,22 @@ export function FlightSearch() {
   const { isLoading, error, data, refetch } = useQuery({
     queryKey: ["flightSearch"],
     queryFn: async () => {
+      const values = form.getValues();
+      if (!values.departureDate) {
+        throw new Error("Departure date is required");
+      }
       const response = await fetch("/api/search-flights", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(form.getValues()),
+        body: JSON.stringify({
+          ...values,
+          departureDate: values.departureDate.toISOString().split("T")[0],
+          returnDate: values.returnDate
+            ? values.returnDate.toISOString().split("T")[0]
+            : undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -84,6 +95,11 @@ export function FlightSearch() {
     }
   }
 
+  function handleSelectOffer(offer: any) {
+    // Implement the logic to handle flight offer selection
+    console.log("Selected offer:", offer);
+  }
+
   return (
     <div className="container py-12">
       <div className="mx-auto max-w-4xl rounded-xl bg-card p-6 shadow-lg">
@@ -93,7 +109,10 @@ export function FlightSearch() {
               <Button
                 type="button"
                 variant={isRoundTrip ? "outline" : "default"}
-                onClick={() => setIsRoundTrip(false)}
+                onClick={() => {
+                  setIsRoundTrip(false);
+                  form.setValue("returnDate", undefined);
+                }}
               >
                 One Way
               </Button>
@@ -170,13 +189,17 @@ export function FlightSearch() {
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent
+                        className="w-auto p-0"
+                        align="start"
+                      >
                         <Calendar
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
                           disabled={(date: Date) =>
-                            date < new Date() || date < new Date("1900-01-01")
+                            date < new Date() ||
+                            date < new Date("1900-01-01")
                           }
                           initialFocus
                         />
@@ -213,13 +236,17 @@ export function FlightSearch() {
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent
+                          className="w-auto p-0"
+                          align="start"
+                        >
                           <Calendar
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
                             disabled={(date: Date) =>
-                              date < form.getValues("departureDate") ||
+                              date <
+                                form.getValues().departureDate! ||
                               date < new Date("1900-01-01")
                             }
                             initialFocus
@@ -241,7 +268,9 @@ export function FlightSearch() {
                   <FormItem>
                     <FormLabel>Passengers</FormLabel>
                     <Select
-                      onValueChange={(value) => field.onChange(Number(value))}
+                      onValueChange={(value: string) =>
+                        field.onChange(Number(value))
+                      }
                       defaultValue={field.value?.toString()}
                     >
                       <FormControl>
@@ -251,7 +280,10 @@ export function FlightSearch() {
                       </FormControl>
                       <SelectContent>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
-                          <SelectItem key={num} value={num.toString()}>
+                          <SelectItem
+                            key={num}
+                            value={num.toString()}
+                          >
                             {num} {num === 1 ? "Adult" : "Adults"}
                           </SelectItem>
                         ))}
@@ -282,7 +314,9 @@ export function FlightSearch() {
                         <SelectItem value="premium_economy">
                           Premium Economy
                         </SelectItem>
-                        <SelectItem value="business">Business</SelectItem>
+                        <SelectItem value="business">
+                          Business
+                        </SelectItem>
                         <SelectItem value="first">First Class</SelectItem>
                       </SelectContent>
                     </Select>
@@ -305,6 +339,21 @@ export function FlightSearch() {
           </form>
         </Form>
       </div>
+
+      {isLoading && (
+        <div className="mt-4">
+          <div className="h-2 w-full bg-gray-200 rounded">
+            <div className="h-2 bg-blue-500 rounded animate-pulse" style={{ width: '50%' }}></div>
+          </div>
+        </div>
+      )}
+
+      {data && data.offers && (
+        <FlightResults
+          offers={data.offers}
+          onSelectOffer={handleSelectOffer}
+        />
+      )}
     </div>
   );
 }

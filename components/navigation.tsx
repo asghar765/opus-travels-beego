@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "components/ui/sheet";
 import { Menu, Moon, PlaneTakeoff, Sun } from "lucide-react";
 
 export function Navigation() {

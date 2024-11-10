@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { duffel } from '@/lib/duffel';
+import { duffel } from 'lib/duffel';
 import { z } from 'zod';
 
 const searchParamsSchema = z.object({
